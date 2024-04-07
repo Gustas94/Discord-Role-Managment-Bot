@@ -86,7 +86,7 @@ Distribute under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Your Name - [Gustas](https://github.com/Gustas94)
+[Gustas](https://github.com/Gustas94)
 
 Project Link: [https://github.com/Gustas94/DiscordBot](https://github.com/Gustas94/DiscordBot)
 
