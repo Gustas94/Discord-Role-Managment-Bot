@@ -1,0 +1,23 @@
+[
+    {
+        "roleId": "1226481820862779392",
+        "roleName": "Tier5",
+        "dependencies": [
+            "1226480465779626027"
+        ]
+    },
+    {
+        "roleId": "1226527182940278884",
+        "roleName": "TestRole",
+        "dependencies": [
+            "1226480465779626027"
+        ]
+    },
+    {
+        "roleId": "1226506678481064037",
+        "roleName": "Noob",
+        "dependencies": [
+            "1226480465779626027"
+        ]
+    }
+]
