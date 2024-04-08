@@ -50,6 +50,11 @@ Before you begin, ensure you have the following:
           "roleId": "234567890123456789",
           "roleName": "RoleName2",
           "dependencies": ["876543210987654321"]
+      },
+      {
+          "roleId": "1226506678481064037",
+          "roleName": "RoleName3",
+          "dependencies": ["123456789012345678 234567890123456789"]
       }
   ]
   ```
