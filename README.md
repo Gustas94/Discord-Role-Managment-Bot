@@ -80,9 +80,10 @@ Currently, the bot automatically handles role management based on server events.
 
 #### Example
 ```bash
-/addrole roleid: 123456789012345678 rolename: Moderator dependencies: 987654321098765432
+/addrole roleid: 123456789012345678 rolename: Moderator dependencies: 987654321098765432 876543210987654321
 ```
-This command would add a new role with ID `123456789012345678`, named "Moderator", with a dependency on the role with ID `987654321098765432`.
+
+This command would add a new role with ID `123456789012345678`, named "Moderator", with dependencies on the roles with IDs `987654321098765432` and `876543210987654321`.
 
 **Note**: This command is intended for use by administrators only. Ensure you have the appropriate permissions before attempting to use it.
 
