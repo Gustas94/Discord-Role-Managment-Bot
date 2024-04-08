@@ -66,7 +66,22 @@ The bot will automatically connect to Discord and start monitoring and managing 
 
 ## Commands
 
-Currently, the bot automatically handles role management based on server events. Future versions may include direct command interactions for additional functionalities.
+Currently, the bot automatically handles role management based on server events. Additionally, the bot supports a command to manually add roles to the configuration file.
+
+### Add Role Command
+- **Command**: `/addrole`
+- **Usage**: `/addrole roleid: [roleid] rolename: [rolename] dependencies: [dependency ID]`
+- **Description**: This command allows administrators to add a new role configuration directly through Discord. Specify the role ID, the role name, and role dependencies.
+
+#### Example
+```bash
+/addrole roleid: 123456789012345678 rolename: Moderator dependencies: 987654321098765432
+```
+This command would add a new role with ID `123456789012345678`, named "Moderator", with a dependency on the role with ID `987654321098765432`.
+
+**Note**: This command is intended for use by administrators only. Ensure you have the appropriate permissions before attempting to use it.
+
+
 
 ## Contributing
 
