@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
-const { data: addRoleCommand } = require('./commands.js');
+const commands = require('./commands.js');
 const { clientId, guildId } = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const client = new Client({
     intents: [
@@ -79,6 +79,7 @@ fs.watch('roles.json', (eventType, filename) => {
 
 loadRoles();
 const setupCommandHandlers = require('./commandHandler');
+setupCommandHandlers(client);
 const lastProcessed = new Map();
 
 client.on('ready', async () => {
@@ -87,16 +88,14 @@ client.on('ready', async () => {
 
     const guild = client.guilds.cache.get(guildId);
     if (guild) {
-        await guild.commands.create(addRoleCommand.toJSON())
-            .then(() => console.log('Command registered!'))
-            .catch(console.error);
+        commands.forEach(async (command) => {
+            await guild.commands.create(command.toJSON())
+                .then(() => console.log(`Command ${command.name} registered!`))
+                .catch(console.error);
+        });
     } else {
         console.log('Guild not found. Cannot register commands!');
     }
-    // Registering commands globally. For future updates.
-    // client.application.commands.create(addRoleCommand.toJSON())
-    //     .then(() => console.log('Global command registered!'))
-    //     .catch(console.error);
 });
 
 
