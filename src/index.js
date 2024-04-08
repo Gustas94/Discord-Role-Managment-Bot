@@ -1,6 +1,8 @@
 require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
+const { data: addRoleCommand } = require('./commands.js');
+const { clientId, guildId } = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -82,8 +84,21 @@ const lastProcessed = new Map();
 client.on('ready', async () => {
     console.log(`${client.user.tag} is now online!`);
     client.user.setActivity('Managing Roles', { type: 'PLAYING' });
-    setupCommandHandlers(client);
+
+    const guild = client.guilds.cache.get(guildId);
+    if (guild) {
+        await guild.commands.create(addRoleCommand.toJSON())
+            .then(() => console.log('Command registered!'))
+            .catch(console.error);
+    } else {
+        console.log('Guild not found. Cannot register commands!');
+    }
+    // Registering commands globally. For future updates.
+    // client.application.commands.create(addRoleCommand.toJSON())
+    //     .then(() => console.log('Global command registered!'))
+    //     .catch(console.error);
 });
+
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (!oldMember.roles.cache.equals(newMember.roles.cache)) {
