@@ -53,7 +53,7 @@ Before you begin, ensure you have the following:
       }
   ]
   ```
-  Replace `roleId` and `dependencies` with actual role IDs from your Discord server.
+  Replace `roleId` and `dependencies` with actual role IDs from your Discord server. The `roleName` can be any name you want.
 
 ## Usage
 
