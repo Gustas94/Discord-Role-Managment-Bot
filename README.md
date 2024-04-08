@@ -59,7 +59,7 @@ Before you begin, ensure you have the following:
 
 To start the bot, run:
 ```bash
-node .
+npm start
 ```
 
 The bot will automatically connect to Discord and start monitoring and managing roles based on the configurations in `roles.json`.
