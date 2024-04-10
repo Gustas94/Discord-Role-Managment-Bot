@@ -2,7 +2,6 @@
 require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
-const commands = require('./commands.js');
 console.log(commands);
 const setupCommandHandlers = require('./commandHandler');
 // Load configurations for all servers
