@@ -3,6 +3,7 @@ require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
 const commands = require('./commands.js');
+console.log(commands);
 const setupCommandHandlers = require('./commandHandler');
 // Load configurations for all servers
 const config = JSON.parse(fs.readFileSync('config.json', 'utf8')).servers;
@@ -210,42 +211,35 @@ function processQueue() {
 // 5. Event Handlers
 
 /**
- * Handles the 'ready' event, which is triggered once the client is fully ready and connected to the Discord API.
- * This event ensures the bot starts its functionalities only after it has successfully logged in and set up.
+ * Handles the 'ready' event, which is triggered when the client is fully connected to the Discord API.
+ * This event marks the point where the bot begins its operations, ensuring that all initial setups are
+ * completed before any interactions with users.
  *
  * Actions performed on bot startup:
- * 1. Logs the bot's tag and online status to the console, indicating that the bot is operational.
- * 2. Sets the bot's activity to "Managing Roles", which is visible as the bot's status to all users on Discord.
- * 3. Iterates through each server configuration stored in the 'config' object. For each server:
- *    a. Attempts to fetch the guild (server) from the Discord API using the guild ID from the configuration.
- *    b. If the guild is found, it then iterates through a predefined list of commands:
- *       i. Each command is registered to the guild using the Discord API.
- *       ii. A success message is logged to the console for each command registered.
- *    c. If the guild is not found (e.g., the bot may have been removed from the server or the ID is incorrect),
- *       logs an error message indicating that the guild was not found.
+ * 1. Logs the bot's operational status with its tag, indicating readiness.
+ * 2. Sets the bot's activity to "Managing Roles", reflecting this status to users on Discord.
+ * 3. Iterates through each server configuration to set up commands:
+ *    a. Fetches each guild by ID. If the guild is accessible:
+ *       i. Registers each command to the guild by converting command data to JSON format.
+ *       ii. Logs a success message for each command successfully registered.
+ *    b. If a guild is not found (e.g., the bot has been removed or the ID is incorrect),
+ *       logs an error message indicating the inability to find the guild.
  * 
- * This setup process ensures that the bot is correctly configured with necessary commands across all servers
- * it is intended to manage as soon as it becomes ready to operate. This is crucial for maintaining consistent
- * functionality and ensuring that all features are available immediately upon the bot's start.
+ * This initialization ensures that the bot is equipped with the necessary commands across all intended servers,
+ * promoting consistent functionality and immediate availability of features from the start.
  */
-client.on('ready', async () => {
+client.once('ready', async () => {
     console.log(`${client.user.tag} is now online!`);
     client.user.setActivity('Managing Roles', { type: 'PLAYING' });
-    config.forEach(serverConfig => {
-        const guild = client.guilds.cache.get(serverConfig.guildId);
-        if (guild) {
-            commands.forEach(async (command) => {
-                try {
-                    await guild.commands.create(command.toJSON());
-                    console.log(`Command ${command.name} registered in ${guild.name}!`);
-                } catch (error) {
-                    console.error(error);
-                }
-            });
-        } else {
-            console.log('Guild not found for ID:', serverConfig.guildId);
+    const guilds = client.guilds.cache.map(guild => guild);
+    for (const guild of guilds) {
+        try {
+            await guild.commands.set(commands.map(cmd => cmd.data.toJSON()));
+            console.log(`Commands registered in ${guild.name}!`);
+        } catch (error) {
+            console.error(`Error registering commands in ${guild.name}:`, error);
         }
-    });
+    }
 });
 
 
