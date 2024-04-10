@@ -1,8 +1,13 @@
+// 1. Imports and Configurations
 require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
 const commands = require('./commands.js');
-const { clientId, guildId } = JSON.parse(fs.readFileSync('config.json', 'utf8'));
+const setupCommandHandlers = require('./commandHandler');
+// Load configurations for all servers
+const config = JSON.parse(fs.readFileSync('config.json', 'utf8')).servers;
+
+// 2. Constants and Global Variables
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -12,38 +17,30 @@ const client = new Client({
     ]
 });
 
-const DEBOUNCE_TIME = 5000; // 5 seconds
+const DEBOUNCE_TIME = 1500; // 1.5 seconds
+const CONFIG_RELOAD_DEBOUNCE = 2000; // 2 seconds for config reload
 let lastKnownContent = '';
-const CONFIG_RELOAD_DEBOUNCE = 2000; // 2 second for config reload
 let configReloadTimer;
+const lastProcessed = new Map();
+const roleUpdateLastProcessed = new Map();
+let roles = [];  // Holds the current roles configuration as RoleManager instances
 
+// 3. Class Definitions
 class RoleManager {
-    constructor(roleId, roleName, removalDependencies = []) {
+    constructor(roleId, roleName, dependencies = []) {
         this.roleId = roleId;
         this.roleName = roleName;
-        this.removalDependencies = removalDependencies;
+        this.removalDependencies = dependencies;
     }
 
-    checkAndApplyRoles(oldMember, newMember) {
-        const key = `${this.roleId}-${newMember.id}`;
-        const now = Date.now();
-        const lastTime = lastProcessed.get(key) || 0;
-
-        if (now - lastTime < DEBOUNCE_TIME) {
-            return; // Skip processing if it's within the debounce period
-        }
-
+    checkRemovalNeeded(oldMember, newMember) {
         const hasRoleBefore = oldMember.roles.cache.has(this.roleId);
         const shouldRemoveRole = this.removalDependencies.some(id => !newMember.roles.cache.has(id));
-
-        if (hasRoleBefore && shouldRemoveRole) {
-            newMember.roles.remove(this.roleId).catch(console.error);
-        }
+        return hasRoleBefore && shouldRemoveRole;
     }
 }
 
-let roles = [];  // This will hold the current roles configuration as RoleManager instances
-
+// 4. Utility Functions
 function loadRoles(checkContent = false) {
     fs.readFile('roles.json', (err, data) => {
         if (err) {
@@ -52,9 +49,8 @@ function loadRoles(checkContent = false) {
         }
         const currentContent = data.toString();
         if (!checkContent || currentContent !== lastKnownContent) {
-            lastKnownContent = currentContent; // Update the last known content
-            const rolesData = JSON.parse(currentContent);
-            roles = rolesData.map(role => new RoleManager(role.roleId, role.roleName, role.dependencies));
+            lastKnownContent = currentContent;
+            roles = JSON.parse(currentContent).map(role => new RoleManager(role.roleId, role.roleName, role.dependencies));
             console.log('Roles configuration reloaded successfully.');
         } else {
             console.log('No change in roles configuration.');
@@ -64,11 +60,8 @@ function loadRoles(checkContent = false) {
 
 function debounceReloadConfig() {
     clearTimeout(configReloadTimer);
-    configReloadTimer = setTimeout(() => {
-        loadRoles(true); // Passing true to check content change
-    }, CONFIG_RELOAD_DEBOUNCE);
+    configReloadTimer = setTimeout(() => loadRoles(true), CONFIG_RELOAD_DEBOUNCE);
 }
-
 
 fs.watch('roles.json', (eventType, filename) => {
     if (eventType === 'change') {
@@ -77,32 +70,49 @@ fs.watch('roles.json', (eventType, filename) => {
     }
 });
 
-loadRoles();
-const setupCommandHandlers = require('./commandHandler');
-setupCommandHandlers(client);
-const lastProcessed = new Map();
-
+// 5. Event Handlers
 client.on('ready', async () => {
     console.log(`${client.user.tag} is now online!`);
     client.user.setActivity('Managing Roles', { type: 'PLAYING' });
-
-    const guild = client.guilds.cache.get(guildId);
-    if (guild) {
-        commands.forEach(async (command) => {
-            await guild.commands.create(command.toJSON())
-                .then(() => console.log(`Command ${command.name} registered!`))
-                .catch(console.error);
-        });
-    } else {
-        console.log('Guild not found. Cannot register commands!');
-    }
+    config.forEach(serverConfig => {
+        const guild = client.guilds.cache.get(serverConfig.guildId);
+        if (guild) {
+            commands.forEach(async (command) => {
+                try {
+                    await guild.commands.create(command.toJSON());
+                    console.log(`Command ${command.name} registered in ${guild.name}!`);
+                } catch (error) {
+                    console.error(error);
+                }
+            });
+        } else {
+            console.log('Guild not found for ID:', serverConfig.guildId);
+        }
+    });
 });
-
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    if (!oldMember.roles.cache.equals(newMember.roles.cache)) {
-        roles.forEach(role => role.checkAndApplyRoles(oldMember, newMember));
+    const memberId = newMember.id;
+    const now = Date.now();
+    const lastTime = roleUpdateLastProcessed.get(memberId) || 0;
+
+    if (now - lastTime < DEBOUNCE_TIME) {
+        return; // Skip processing if it's within the debounce period
+    }
+    roleUpdateLastProcessed.set(memberId, now);
+
+    const rolesToRemove = roles.filter(role => role.checkRemovalNeeded(oldMember, newMember)).map(role => role.roleId);
+    if (rolesToRemove.length > 0) {
+        try {
+            await newMember.roles.remove(rolesToRemove);
+            console.log(`Removed roles: ${rolesToRemove.join(', ')} from ${newMember.displayName}`);
+        } catch (error) {
+            console.error('Failed to remove roles:', error);
+        }
     }
 });
 
+// 6. Initialization
+loadRoles();
+setupCommandHandlers(client);
 client.login(process.env.TOKEN);
