@@ -17,6 +17,33 @@ const client = new Client({
     ]
 });
 
+
+/**
+ * Constants and variables used for managing timing, configurations, and state within the bot:
+ *
+ * - DEBOUNCE_TIME (number): The amount of time, in milliseconds (1500ms), to delay processing repeated events
+ *   or actions to avoid excessive operations or rate limiting. This is particularly used for debouncing role
+ *   update checks to ensure efficient processing under frequent change conditions.
+ *
+ * - CONFIG_RELOAD_DEBOUNCE (number): The amount of time, in milliseconds (2000ms), to delay reloading the
+ *   configuration to prevent excessive reloading during rapid consecutive file changes.
+ *
+ * - lastKnownContent (string): Stores the last known content of the roles configuration file ('roles.json').
+ *   This is used to check against the current file content to determine whether a reload of role configurations
+ *   is necessary.
+ *
+ * - configReloadTimer (Timeout): A variable to hold the reference to the current timeout for config reloading.
+ *   This allows for cancellation of the reload timer if a new change is detected before the timer completes.
+ *
+ * - lastProcessed (Map): A map to keep track of the last processed times for guild members, used to debounce
+ *   events like guildMemberUpdate. This prevents processing the same member multiple times within a short interval.
+ *
+ * - roleUpdateLastProcessed (Map): Similar to lastProcessed, but specifically tracks the last update times
+ *   for role changes to manage and debounce the role updates efficiently.
+ *
+ * - roles (Array): An array that holds the current configuration of roles as instances of the RoleManager class.
+ *   This array is updated when the roles configuration file is reloaded.
+ */
 const DEBOUNCE_TIME = 1500; // 1.5 seconds
 const CONFIG_RELOAD_DEBOUNCE = 2000; // 2 seconds for config reload
 let lastKnownContent = '';
@@ -26,6 +53,24 @@ const roleUpdateLastProcessed = new Map();
 let roles = [];  // Holds the current roles configuration as RoleManager instances
 
 // 3. Class Definitions
+
+
+/**
+ * Manages role dependencies and handles the logic for determining whether a role needs to be removed from a guild member.
+ * This class provides the foundation for role-based operations within the Discord bot, ensuring that roles are managed
+ * according to specific dependencies defined per role.
+ *
+ * Properties:
+ * - roleId (string): The unique identifier for the role.
+ * - roleName (string): The name of the role.
+ * - removalDependencies (array): A list of role IDs that this role depends on. If any of these roles are removed from a member,
+ *   then this role should also be considered for removal.
+ *
+ * Methods:
+ * - checkRemovalNeeded(oldMember, newMember): Determines if a role should be removed based on changes in a member's roles.
+ *   It checks if the role was present before and if any of the dependent roles have been removed in the latest update.
+ *   Returns true if the role needs to be removed, otherwise false.
+ */
 class RoleManager {
     constructor(roleId, roleName, dependencies = []) {
         this.roleId = roleId;
@@ -41,6 +86,33 @@ class RoleManager {
 }
 
 // 4. Utility Functions
+
+
+/**
+ * Loads and updates the roles configuration from a JSON file ('roles.json').
+ * This function is designed to read role configurations and update the bot's role management settings
+ * accordingly, ensuring that the bot's behavior aligns with the latest configurations.
+ *
+ * Parameters:
+ * - checkContent (boolean): Indicates whether to check for updates in the 'roles.json' file before reloading. 
+ *   When set to true, the function reloads roles only if there have been changes to the file content since 
+ *   the last check.
+ *
+ * Process:
+ * 1. Reads the 'roles.json' file asynchronously. If an error occurs during the read (e.g., file not found
+ *    or inaccessible), it logs the error and returns early without changing the current role configurations.
+ * 2. Converts the file data from Buffer to string format and checks if the content has changed from the
+ *    last known content (if checkContent is true). This prevents unnecessary reprocessing of role data
+ *    if there are no changes, optimizing performance.
+ * 3. If the content is new or if checkContent is false, it parses the JSON string into an array of role
+ *    objects and transforms these into instances of RoleManager. This update ensures that the bot's role
+ *    management system uses the most current configurations.
+ * 4. Logs the outcome of the reload operation; if roles are reloaded, it confirms successful reloading,
+ *    otherwise, it notes that there was no change in configuration.
+ *
+ * This function supports efficient and dynamic role management, allowing the bot to adapt to configuration
+ * changes without needing a restart.
+ */
 function loadRoles(checkContent = false) {
     fs.readFile('roles.json', (err, data) => {
         if (err) {
@@ -58,6 +130,17 @@ function loadRoles(checkContent = false) {
     });
 }
 
+
+/**
+ * Debounces the reloading of role configurations to prevent frequent reloads in quick succession.
+ * This function ensures that reloading of the roles is delayed and only happens once per specified interval,
+ * which avoids unnecessary processing and potential performance issues during rapid consecutive changes
+ * to the roles configuration file.
+ *
+ * Uses `setTimeout` to delay the role reloading process by a duration defined in `CONFIG_RELOAD_DEBOUNCE`.
+ * If called multiple times within the debounce interval, only the last call will trigger the reloading after
+ * the interval expires, as previous timeouts are cleared with `clearTimeout`.
+ */
 function debounceReloadConfig() {
     clearTimeout(configReloadTimer);
     configReloadTimer = setTimeout(() => loadRoles(true), CONFIG_RELOAD_DEBOUNCE);
@@ -71,6 +154,26 @@ fs.watch('roles.json', (eventType, filename) => {
 });
 
 // 5. Event Handlers
+
+/**
+ * Handles the 'ready' event, which is triggered once the client is fully ready and connected to the Discord API.
+ * This event ensures the bot starts its functionalities only after it has successfully logged in and set up.
+ *
+ * Actions performed on bot startup:
+ * 1. Logs the bot's tag and online status to the console, indicating that the bot is operational.
+ * 2. Sets the bot's activity to "Managing Roles", which is visible as the bot's status to all users on Discord.
+ * 3. Iterates through each server configuration stored in the 'config' object. For each server:
+ *    a. Attempts to fetch the guild (server) from the Discord API using the guild ID from the configuration.
+ *    b. If the guild is found, it then iterates through a predefined list of commands:
+ *       i. Each command is registered to the guild using the Discord API.
+ *       ii. A success message is logged to the console for each command registered.
+ *    c. If the guild is not found (e.g., the bot may have been removed from the server or the ID is incorrect),
+ *       logs an error message indicating that the guild was not found.
+ * 
+ * This setup process ensures that the bot is correctly configured with necessary commands across all servers
+ * it is intended to manage as soon as it becomes ready to operate. This is crucial for maintaining consistent
+ * functionality and ensuring that all features are available immediately upon the bot's start.
+ */
 client.on('ready', async () => {
     console.log(`${client.user.tag} is now online!`);
     client.user.setActivity('Managing Roles', { type: 'PLAYING' });
@@ -91,6 +194,25 @@ client.on('ready', async () => {
     });
 });
 
+
+/**
+ * Handles the 'guildMemberUpdate' event to manage role removals based on defined dependencies.
+ * This listener is triggered whenever a guild member's properties, such as roles, are updated.
+ *
+ * The function implements debouncing to prevent rapid, repeated processing of a member's updates within a short interval,
+ * defined by `DEBOUNCE_TIME`. This is particularly useful to limit the frequency of API calls and processing overhead
+ * when a member's roles change frequently in quick succession.
+ *
+ * Process:
+ * 1. Checks if the update occurred within the debounced period since the last processed update for the same member.
+ *    If so, it skips processing to wait for a more stable state.
+ * 2. Updates the timestamp for the last processed event for this member.
+ * 3. Determines which roles need to be removed based on the member's current roles and predefined dependencies.
+ * 4. If any roles are identified for removal, it attempts to remove these roles and logs the action.
+ *    Errors during the role removal are caught and logged.
+ *
+ * This approach ensures efficient and controlled role management, enhancing bot performance and compliance with Discord's rate limits.
+ */
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const memberId = newMember.id;
     const now = Date.now();
