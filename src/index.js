@@ -43,6 +43,12 @@ const client = new Client({
  *
  * - roles (Array): An array that holds the current configuration of roles as instances of the RoleManager class.
  *   This array is updated when the roles configuration file is reloaded.
+ * 
+ * - updateQueue (Array): A queue that holds role removal tasks to manage and pace API requests according to
+ *   Discord's rate limits, ensuring that bulk role changes do not exceed permissible request rates.
+ *
+ * - isProcessingQueue (boolean): A flag to indicate whether the update queue is currently being processed,
+ *   ensuring that the queue operation runs sequentially and does not initiate multiple concurrent processes.
  */
 const DEBOUNCE_TIME = 1500; // 1.5 seconds
 const CONFIG_RELOAD_DEBOUNCE = 2000; // 2 seconds for config reload
@@ -50,7 +56,9 @@ let lastKnownContent = '';
 let configReloadTimer;
 const lastProcessed = new Map();
 const roleUpdateLastProcessed = new Map();
-let roles = [];  // Holds the current roles configuration as RoleManager instances
+let roles = [];
+const updateQueue = [];
+let isProcessingQueue = false;
 
 // 3. Class Definitions
 
@@ -153,6 +161,52 @@ fs.watch('roles.json', (eventType, filename) => {
     }
 });
 
+
+
+/**
+ * Processes queued role removal tasks sequentially to manage the rate of API requests made to Discord.
+ * This function helps ensure that the bot adheres to Discord's rate limit constraints by controlling
+ * how frequently roles are removed from members.
+ *
+ * Operation:
+ * 1. Checks if the queue is already being processed. If so, it exits to avoid overlapping executions.
+ * 2. Sets the `isProcessingQueue` flag to true, indicating that the queue processing has started.
+ * 3. Defines an internal function `processNext` that handles the sequential processing of each task:
+ *    a. Checks if the queue is empty. If yes, it resets `isProcessingQueue` to false and returns,
+ *       indicating that all tasks have been processed.
+ *    b. Dequeues the next task from `updateQueue` and attempts to remove the specified roles from the member.
+ *    c. If the role removal is successful, it logs the action and uses `setTimeout` to delay the next call
+ *       to `processNext`, pacing the requests to stay within the rate limit (20 requests per second, as 1000ms/50).
+ *    d. If an error occurs during role removal, it logs the error and still proceeds to the next task after a delay,
+ *       ensuring continued processing of remaining tasks.
+ *
+ * This structured and paced processing mitigates the risk of hitting rate limits when multiple role updates occur,
+ * allowing the bot to manage roles efficiently even under high load conditions.
+ */
+function processQueue() {
+    if (isProcessingQueue) return;
+    isProcessingQueue = true;
+
+    (function processNext() {
+        if (updateQueue.length === 0) {
+            isProcessingQueue = false;
+            return;
+        }
+
+        const { member, rolesToRemove } = updateQueue.shift();
+        member.roles.remove(rolesToRemove)
+            .then(() => {
+                console.log(`Removed roles: ${rolesToRemove.join(', ')} from ${member.displayName}`);
+                setTimeout(processNext, 1000 / 50); // Process the next item at rate limit pace
+            })
+            .catch(error => {
+                console.error('Failed to remove roles:', error);
+                setTimeout(processNext, 1000 / 50);
+            });
+    })();
+}
+
+
 // 5. Event Handlers
 
 /**
@@ -199,19 +253,16 @@ client.on('ready', async () => {
  * Handles the 'guildMemberUpdate' event to manage role removals based on defined dependencies.
  * This listener is triggered whenever a guild member's properties, such as roles, are updated.
  *
- * The function implements debouncing to prevent rapid, repeated processing of a member's updates within a short interval,
- * defined by `DEBOUNCE_TIME`. This is particularly useful to limit the frequency of API calls and processing overhead
- * when a member's roles change frequently in quick succession.
- *
- * Process:
+ * The function implements debouncing and a queuing system to manage API requests efficiently:
  * 1. Checks if the update occurred within the debounced period since the last processed update for the same member.
- *    If so, it skips processing to wait for a more stable state.
+ *    If so, it skips processing to ensure changes are stabilized.
  * 2. Updates the timestamp for the last processed event for this member.
  * 3. Determines which roles need to be removed based on the member's current roles and predefined dependencies.
- * 4. If any roles are identified for removal, it attempts to remove these roles and logs the action.
- *    Errors during the role removal are caught and logged.
+ * 4. If any roles are identified for removal, they are added to a queue. The queue ensures roles are removed
+ *    at a rate that complies with Discord's API rate limits.
+ * 5. The queued removal operations are processed sequentially to ensure each request adheres to rate limiting constraints.
  *
- * This approach ensures efficient and controlled role management, enhancing bot performance and compliance with Discord's rate limits.
+ * This approach enhances bot performance by managing role updates efficiently and ensures compliance with Discord's rate limits.
  */
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const memberId = newMember.id;
@@ -225,12 +276,8 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 
     const rolesToRemove = roles.filter(role => role.checkRemovalNeeded(oldMember, newMember)).map(role => role.roleId);
     if (rolesToRemove.length > 0) {
-        try {
-            await newMember.roles.remove(rolesToRemove);
-            console.log(`Removed roles: ${rolesToRemove.join(', ')} from ${newMember.displayName}`);
-        } catch (error) {
-            console.error('Failed to remove roles:', error);
-        }
+        updateQueue.push({ member: newMember, rolesToRemove });
+        processQueue();
     }
 });
 
