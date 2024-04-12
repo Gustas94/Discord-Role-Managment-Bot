@@ -7,8 +7,9 @@ This Discord bot automatically manages roles within servers based on predefined 
 
 ## Features
 
-- **Dynamic Role Management**: Automatically removes roles based on the dependencies specified in `roles.json`.
-- **Real-time Configuration**: Monitors changes in role configuration and applies updates in real-time without needing to restart the bot.
+- **Dynamic Role Management**: Automatically removes roles based on the dependencies specified in individual `roles_{guildId}.json` files.
+- **Real-time Configuration Update**: Monitors changes in role configuration files and applies updates in real-time without needing to restart the bot.
+- **Guild-specific Role Configuration**: Supports separate role configuration files for each guild, allowing for customized role management across multiple servers.
 - **Secure Handling**: Uses environment variables to securely manage sensitive information like the Discord bot token.
 
 ## Prerequisites
@@ -38,8 +39,8 @@ Before you begin, ensure you have the following:
 
 ## Configuration
 
-- **roles.json**: This file contains the role configurations. Format the file as follows:
-  ```json
+Each server's roles are configured in a separate JSON file named `roles_{guildId}.json` located in the roles directory. Format each file as follows:
+ ```
   [
       {
           "roleId": "123456789012345678",
@@ -67,16 +68,19 @@ To start the bot, run:
 npm start
 ```
 
-The bot will automatically connect to Discord and start monitoring and managing roles based on the configurations in `roles.json`.
+The bot will automatically connect to Discord and start monitoring and managing roles based on the configurations in their respective `roles_{guildId}.json` files.
 
 ## Commands
 
-Currently, the bot automatically handles role management based on server events. Additionally, the bot supports a command to manually add roles to the configuration file.
+The bot supports commands to manually manage role configurations directly through Discord interactions.
 
 ### Add Role Command
-- **Command**: `/addrole`
-- **Usage**: `/addrole roleid: [roleid] rolename: [rolename] dependencies: [dependency ID]`
--  **Description**: This command allows administrators to add a new role configuration directly through Discord. Specify the role ID, role name, and any role dependencies separated by spaces. Dependencies should be entered as role IDs.
+ - **Command**: /addrole
+ - **Parameters**:
+ - `roleid`: The unique identifier for the new role.
+ - `rolename`: The name of the role as it appears to users.
+ - `dependencies`: A comma-separated list of dependent role IDs.
+    Description: Allows administrators to add new roles with dependencies directly through Discord.
 
 #### Example
 ```bash
@@ -87,7 +91,21 @@ This command would add a new role with ID `123456789012345678`, named "Moderator
 
 **Note**: This command is intended for use by administrators only. Ensure you have the appropriate permissions before attempting to use it.
 
+### Remove Role Command
+- **Command**: `/removerole`
+- **Parameters**:
+  - `roleid`: The unique identifier of the role to remove.
+  - `rolename`: The visible name of the role.
+  - `dependencies`: A comma-separated list of role IDs that the target role depends upon.
+- **Description**: Enables administrators to remove roles that are no longer needed or correct configurations that have changed.
 
+#### Example
+```bash
+/removerole roleid: 123456789012345678 rolename: Moderator dependencies: 987654321098765432, 876543210987654321
+```
+This command would remove a role with ID `123456789012345678`, named "Moderator", that depends on the roles with IDs `987654321098765432` and `876543210987654321`.
+
+**Note**: This command should be used with caution to avoid unintended role removals. It is intended for administrative use only.
 
 ## Contributing
 
