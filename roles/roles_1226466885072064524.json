@@ -1,0 +1,23 @@
+[
+    {
+        "roleId": "1227415941730668565",
+        "roleName": "TestRole1",
+        "dependencies": [
+            "1226480465779626027"
+        ]
+    },
+    {
+        "roleId": "1227416722294837248",
+        "roleName": "TestRoleTest",
+        "dependencies": [
+            "1226480465779626027"
+        ]
+    },
+    {
+        "roleId": "1227416058130858004",
+        "roleName": "TestRole2",
+        "dependencies": [
+            "1226480465779626027"
+        ]
+    }
+]
