@@ -273,13 +273,17 @@ client.once('ready', async () => {
  * The function implements debouncing and a queuing system to manage API requests efficiently:
  * 1. Checks if the update occurred within the debounced period since the last processed update for the same member.
  *    If so, it skips processing to ensure changes are stabilized.
- * 2. Updates the timestamp for the last processed event for this member.
- * 3. Determines which roles need to be removed based on the member's current roles and predefined dependencies.
- * 4. If any roles are identified for removal, they are added to a queue. The queue ensures roles are removed
- *    at a rate that complies with Discord's API rate limits.
- * 5. The queued removal operations are processed sequentially to ensure each request adheres to rate limiting constraints.
+ * 2. Updates the timestamp for the last processed event for this member to manage debouncing of role updates.
+ * 3. Verifies if roles are configured for the guild and proceeds if roles exist.
+ * 4. Determines which roles need to be removed based on the member's current roles and predefined dependencies
+ *    as specified in the guild-specific roles configuration.
+ * 5. If any roles are identified for removal, they are added to a queue. The queue ensures roles are removed
+ *    at a rate that complies with Discord's API rate limits, thus avoiding potential rate limit violations.
+ * 6. The queued removal operations are processed sequentially to ensure each request adheres to rate limiting constraints,
+ *    maintaining efficient and reliable bot performance.
  *
- * This approach enhances bot performance by managing role updates efficiently and ensures compliance with Discord's rate limits.
+ * This updated approach enhances bot performance by managing role updates efficiently and ensures compliance
+ * with Discord's rate limits while adapting to the new guild-specific role configurations.
  */
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const guildId = newMember.guild.id;
