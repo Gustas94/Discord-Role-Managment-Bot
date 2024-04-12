@@ -290,18 +290,16 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const memberId = newMember.id;
     const now = Date.now();
     if (now - (roleUpdateLastProcessed.get(memberId) || 0) < DEBOUNCE_TIME) {
-        return; // Skip processing if it's within the debounce period
+        return;
     }
 
     roleUpdateLastProcessed.set(memberId, now);
 
-    // Ensure the roles for this guild are loaded
     if (!roles[guildId] || roles[guildId].length === 0) {
         console.log(`No roles configured for guild ${guildId}, skipping role update.`);
         return;
     }
 
-    // Filter out roles that need to be removed based on dependencies
     const rolesToRemove = roles[guildId].filter(role => role.checkRemovalNeeded(oldMember, newMember)).map(role => role.roleId);
     if (rolesToRemove.length > 0) {
         updateQueue.push({ member: newMember, rolesToRemove });
