@@ -80,7 +80,7 @@ The bot supports commands to manually manage role configurations directly throug
  - `roleid`: The unique identifier for the new role.
  - `rolename`: The name of the role as it appears to users.
  - `dependencies`: A comma-separated list of dependent role IDs.
- - **Description**: Description: Allows administrators to add new roles with dependencies directly through Discord.
+ - **Description**: Allows administrators to add new roles with dependencies directly through Discord.
 
 #### Example
 ```bash
